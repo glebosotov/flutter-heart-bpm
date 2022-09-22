@@ -24,6 +24,8 @@ class SensorValue {
       List.generate(data.length, (index) => data[index].toJSON());
 }
 
+enum HeartBPMDialogLayoutType { defaultLayout, circle }
+
 /// Obtains heart beats per minute using camera sensor
 ///
 /// Using the smartphone camera, the widget estimates the skin tone variations
@@ -46,6 +48,11 @@ class HeartBPMDialog extends StatefulWidget {
 
   /// Parent context
   final BuildContext context;
+
+  /// Dialog layout type
+  /// [HeartBPMDialogLayoutType.defaultLayout] - default layout
+  /// [HeartBPMDialogLayoutType.circle] - circular layout with only camera visible
+  final HeartBPMDialogLayoutType layoutType;
 
   /// Smoothing factor
   ///
@@ -83,6 +90,7 @@ class HeartBPMDialog extends StatefulWidget {
     this.onRawData,
     this.alpha = 0.8,
     this.child,
+    this.layoutType = HeartBPMDialogLayoutType.defaultLayout,
   });
 
   /// Set the smoothing factor for exponential averaging
@@ -136,6 +144,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     isCameraInitialized = false;
     if (_controller == null) return;
     // await _controller.stopImageStream();
+    await _controller!.setFlashMode(FlashMode.off);
     await _controller!.dispose();
     // while (_processing) {}
     // _controller = null;
@@ -150,7 +159,19 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       // 1. get list of all available cameras
       List<CameraDescription> _cameras = await availableCameras();
       // 2. assign the preferred camera with low resolution and disable audio
-      _controller = CameraController(_cameras.first, ResolutionPreset.low,
+
+      /// Filter front cameras
+      _cameras = _cameras
+          .where((element) => element.lensDirection == CameraLensDirection.back)
+          .toList();
+
+      /// Choose iPhone zoom lense as it is aligned with the flash
+      final _camera = _cameras.firstWhere(
+          (element) =>
+              element.name ==
+              'com.apple.avfoundation.avcapturedevice.built-in_video:2',
+          orElse: () => _cameras.first);
+      _controller = CameraController(_camera, ResolutionPreset.low,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.yuv420);
 
       // 3. initialize the camera
@@ -263,19 +284,41 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: isCameraInitialized
-          ? Column(
-              children: [
-                Container(
-                  constraints: BoxConstraints.tightFor(width: 100, height: 130),
-                  child: _controller!.buildPreview(),
-                ),
-                Text(currentValue.toStringAsFixed(0)),
-                widget.child == null ? SizedBox() : widget.child!,
-              ],
-            )
-          : Center(child: CircularProgressIndicator()),
-    );
+    switch (widget.layoutType) {
+      case HeartBPMDialogLayoutType.defaultLayout:
+        return Container(
+          child: isCameraInitialized
+              ? Column(
+                  children: [
+                    Container(
+                      constraints:
+                          BoxConstraints.tightFor(width: 100, height: 130),
+                      child: _controller!.buildPreview(),
+                    ),
+                    Text(currentValue.toStringAsFixed(0)),
+                    widget.child == null ? SizedBox() : widget.child!,
+                  ],
+                )
+              : Center(child: CircularProgressIndicator()),
+        );
+
+      case HeartBPMDialogLayoutType.circle:
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          child: isCameraInitialized
+              ? LayoutBuilder(builder: (context, constraints) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    child: ClipRRect(
+                        borderRadius:
+                            BorderRadius.circular(constraints.maxWidth / 2),
+                        child: _controller!.buildPreview()),
+                  );
+                })
+              : Center(child: CircularProgressIndicator.adaptive()),
+        );
+    }
   }
 }

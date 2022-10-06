@@ -1,7 +1,18 @@
 // library heart_bpm;
 
+import 'dart:math';
+import 'package:image/image.dart' as imglib;
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+
+class RGB {
+  double red;
+  double green;
+  double blue;
+
+  RGB(this.red, this.green, this.blue);
+}
 
 /// Class to store one sample data point
 class SensorValue {
@@ -42,6 +53,9 @@ class HeartBPMDialog extends StatefulWidget {
   ///
   /// Should be non-blocking as it can affect
   final void Function(SensorValue)? onRawData;
+
+  /// Callback used to notify if the image is not red enough
+  final void Function()? onNoFingerDetected;
 
   /// Camera sampling rate in milliseconds
   final int sampleDelay;
@@ -87,6 +101,7 @@ class HeartBPMDialog extends StatefulWidget {
     required this.context,
     this.sampleDelay = 2000 ~/ 30,
     required this.onBPM,
+    this.onNoFingerDetected,
     this.onRawData,
     this.alpha = 0.8,
     this.child,
@@ -203,6 +218,93 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
 
+  double _getRed(CameraImage cameraImage) {
+    final imageWidth = cameraImage.width;
+    final imageHeight = cameraImage.height;
+
+    final yBuffer = cameraImage.planes[0].bytes;
+    final uBuffer = cameraImage.planes[1].bytes;
+    final vBuffer = cameraImage.planes[2].bytes;
+
+    final int yRowStride = cameraImage.planes[0].bytesPerRow;
+    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
+
+    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
+    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
+
+    double red = 0;
+
+    for (int h = 0; h < imageHeight; h++) {
+      int uvh = (h / 2).floor();
+
+      for (int w = 0; w < imageWidth; w++) {
+        int uvw = (w / 2).floor();
+
+        final yIndex = (h * yRowStride) + (w * yPixelStride);
+        final int y = yBuffer[yIndex];
+
+        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
+        final int v = vBuffer[uvIndex];
+
+        int r = (y + v * 1436 / 1024 - 179).round();
+        r = r.clamp(0, 255);
+        red += r;
+      }
+    }
+
+    return red / (imageHeight * imageWidth);
+  }
+
+  RGB getRGB(CameraImage cameraImage) {
+    final imageWidth = cameraImage.width;
+    final imageHeight = cameraImage.height;
+
+    final yBuffer = cameraImage.planes[0].bytes;
+    final uBuffer = cameraImage.planes[1].bytes;
+    final vBuffer = cameraImage.planes[2].bytes;
+
+    final int yRowStride = cameraImage.planes[0].bytesPerRow;
+    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
+
+    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
+    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
+
+    double red = 0;
+    double green = 0;
+    double blue = 0;
+
+    for (int h = 0; h < imageHeight; h++) {
+      int uvh = (h / 2).floor();
+
+      for (int w = 0; w < imageWidth; w++) {
+        int uvw = (w / 2).floor();
+
+        final yIndex = (h * yRowStride) + (w * yPixelStride);
+
+        final int y = yBuffer[yIndex];
+        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
+
+        final int u = uBuffer[uvIndex];
+        final int v = vBuffer[uvIndex];
+
+        int r = (y + v * 1436 / 1024 - 179).round();
+        int g = (y - u * 46549 / 131072 + 44 - v * 93604 / 131072 + 91).round();
+        int b = (y + u * 1814 / 1024 - 227).round();
+
+        red += r.clamp(0, 255);
+        green += g.clamp(0, 255);
+        blue += b.clamp(0, 255);
+      }
+    }
+
+    final total = imageWidth * imageHeight;
+    return RGB(red / total, green / total, blue / total);
+  }
+
+  bool fingerCondition(RGB rgb) {
+    return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
+  }
+
   void _scanImage(CameraImage image) async {
     // make system busy
     // setState(() {
@@ -216,6 +318,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
     measureWindow.removeAt(0);
     measureWindow.add(SensorValue(time: DateTime.now(), value: _avg));
+
+    if (!fingerCondition(getRGB(image))) {
+      if (widget.onNoFingerDetected != null) {
+        widget.onNoFingerDetected!();
+      }
+    }
 
     _smoothBPM(_avg).then((value) {
       widget.onRawData!(

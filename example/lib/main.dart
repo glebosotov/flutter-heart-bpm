@@ -60,6 +60,7 @@ class _HomePageState extends State<HomePage> {
                       bpmValues.add(SensorValue(
                           value: value.toDouble(), time: DateTime.now()));
                     }),
+                    onNoFingerDetected: () {},
                     // sampleDelay: 1000 ~/ 20,
                     // child: Container(
                     //   height: 50,

@@ -56,17 +56,12 @@ class _HomePageState extends State<HomePage> {
                       // chart = BPMChart(data);
                     },
                     onBPM: (value) => setState(() {
+                      print(value);
                       if (bpmValues.length >= 100) bpmValues.removeAt(0);
                       bpmValues.add(SensorValue(
                           value: value.toDouble(), time: DateTime.now()));
                     }),
                     onNoFingerDetected: () {},
-                    // sampleDelay: 1000 ~/ 20,
-                    // child: Container(
-                    //   height: 50,
-                    //   width: 100,
-                    //   child: BPMChart(data),
-                    // ),
                   ),
                 )
               : SizedBox(),

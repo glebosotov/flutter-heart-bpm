@@ -1,10 +1,8 @@
 // library heart_bpm;
 
-import 'dart:math';
-import 'package:image/image.dart' as imglib;
-
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 
 class RGB {
   double red;
@@ -222,43 +220,6 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
 
-  double _getRed(CameraImage cameraImage) {
-    final imageWidth = cameraImage.width;
-    final imageHeight = cameraImage.height;
-
-    final yBuffer = cameraImage.planes[0].bytes;
-    final uBuffer = cameraImage.planes[1].bytes;
-    final vBuffer = cameraImage.planes[2].bytes;
-
-    final int yRowStride = cameraImage.planes[0].bytesPerRow;
-    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
-
-    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
-    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
-
-    double red = 0;
-
-    for (int h = 0; h < imageHeight; h++) {
-      int uvh = (h / 2).floor();
-
-      for (int w = 0; w < imageWidth; w++) {
-        int uvw = (w / 2).floor();
-
-        final yIndex = (h * yRowStride) + (w * yPixelStride);
-        final int y = yBuffer[yIndex];
-
-        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
-        final int v = vBuffer[uvIndex];
-
-        int r = (y + v * 1436 / 1024 - 179).round();
-        r = r.clamp(0, 255);
-        red += r;
-      }
-    }
-
-    return red / (imageHeight * imageWidth);
-  }
-
   RGB getRGB(CameraImage cameraImage) {
     final imageWidth = cameraImage.width;
     final imageHeight = cameraImage.height;
@@ -315,10 +276,8 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     //   _processing = true;
     // });
 
-    // get the average value of the image
-    double _avg =
-        image.planes.first.bytes.reduce((value, element) => value + element) /
-            image.planes.first.bytes.length;
+    // get the average red value of the image
+    double _avg = getRGB(image).red;
 
     measureWindow.removeAt(0);
     measureWindow.add(SensorValue(time: DateTime.now(), value: _avg));
@@ -333,12 +292,17 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       }
     }
 
-    _smoothBPM(_avg).then((value) {
+    var normalizedData = _normalizedData(measureWindow);
+    var detrendedData = _detrendedData(normalizedData, 5);
+    detrendedData = _detrendedData(detrendedData, 10);
+    detrendedData = _detrendedData(detrendedData, 25);
+
+    _smoothBPM(detrendedData.last.value.toDouble()).then((value) {
       widget.onRawData!(
         // call the provided function with the new data sample
         SensorValue(
           time: DateTime.now(),
-          value: _avg,
+          value: detrendedData.last.value.toDouble(),
         ),
       );
 
@@ -352,12 +316,54 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     });
   }
 
-  /// Smooth the raw measurements using Exponential averaging
-  /// the scaling factor [alpha] is used to compute exponential moving average of the
-  /// realtime data using the formula:
-  /// ```
-  /// $y_n = alpha * x_n + (1 - alpha) * y_{n-1}$
-  /// ```
+  List<SensorValue> _normalizedData(List<SensorValue> data) {
+    num max = data.map((e) => e.value).toList().max;
+    num min = data.map((e) => e.value).toList().min;
+
+    return data
+        .map((e) => SensorValue(
+            time: e.time, value: 10 * (e.value - min) / (max - min)))
+        .toList();
+  }
+
+  List<SensorValue> _detrendedData(List<SensorValue> data, int spread) {
+    var trend = _trend(data.map((e) => e.value).toList(), spread);
+
+    int i = 0;
+    return data
+        .map((e) => SensorValue(time: e.time, value: e.value - trend[i++]))
+        .toList();
+  }
+
+  List<num> _trend(List<num> data, int spread) {
+    var result = <num>[];
+    var sublist = <num>[];
+
+    for (int i = 0; i < data.length; i++) {
+      if (i < spread || i > data.length - spread - 1) {
+        result.add(data[i]);
+      } else {
+        if (sublist.isEmpty) {
+          sublist = data.sublist(i - spread, i + spread);
+        } else {
+          sublist.removeAt(0);
+          sublist.add(data[i + spread]);
+        }
+        result.add(sublist.average);
+      }
+    }
+
+    for (int i = 0; i < spread; i++) {
+      result[i] = result[spread];
+    }
+
+    for (int i = result.length - spread; i < result.length; i++) {
+      result[i] = result[result.length - spread - 1];
+    }
+
+    return result;
+  }
+
   Future<int> _smoothBPM(double newValue) async {
     double maxVal = 0, _avg = 0;
 

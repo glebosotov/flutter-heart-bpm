@@ -57,6 +57,9 @@ class HeartBPMDialog extends StatefulWidget {
   /// Callback used to notify if the image is not red enough
   final void Function()? onNoFingerDetected;
 
+  /// Callback used to notify if the image is red enough
+  final void Function()? onFingerDetected;
+
   /// Camera sampling rate in milliseconds
   final int sampleDelay;
 
@@ -102,6 +105,7 @@ class HeartBPMDialog extends StatefulWidget {
     this.sampleDelay = 2000 ~/ 30,
     required this.onBPM,
     this.onNoFingerDetected,
+    this.onFingerDetected,
     this.onRawData,
     this.alpha = 0.8,
     this.child,
@@ -322,6 +326,10 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     if (!fingerCondition(getRGB(image))) {
       if (widget.onNoFingerDetected != null) {
         widget.onNoFingerDetected!();
+      }
+    } else {
+      if (widget.onFingerDetected != null) {
+        widget.onFingerDetected!();
       }
     }
 

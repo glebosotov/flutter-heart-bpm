@@ -320,6 +320,8 @@ class _HeartBPPView extends State<HeartBPMDialog> {
         image.planes.first.bytes.reduce((value, element) => value + element) /
             image.planes.first.bytes.length;
 
+    _avg = getRGB(image).red;
+
     measureWindow.removeAt(0);
     measureWindow.add(SensorValue(time: DateTime.now(), value: _avg));
 

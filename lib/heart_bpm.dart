@@ -1,6 +1,9 @@
 // library heart_bpm;
 
+import 'dart:math';
+
 import 'package:camera/camera.dart';
+import 'package:fftea/fftea.dart';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 
@@ -45,12 +48,14 @@ class HeartBPMDialog extends StatefulWidget {
   /// Callback used to notify the caller of updated BPM measurement
   ///
   /// Should be non-blocking as it can affect
-  final void Function(int) onBPM;
+  final void Function(int, double) onBPM;
 
   /// Callback used to notify the caller of updated raw data sample
   ///
   /// Should be non-blocking as it can affect
-  final void Function(SensorValue)? onRawData;
+  final void Function(List<SensorValue>)? onRawData;
+
+  final void Function(List<double>)? onFFT;
 
   /// Callback used to notify if the image is not red enough
   final void Function()? onNoFingerDetected;
@@ -100,8 +105,9 @@ class HeartBPMDialog extends StatefulWidget {
   HeartBPMDialog({
     Key? key,
     required this.context,
-    this.sampleDelay = 2000 ~/ 30,
+    this.sampleDelay = 2000 ~/ 60,
     required this.onBPM,
+    this.onFFT,
     this.onNoFingerDetected,
     this.onFingerDetected,
     this.onRawData,
@@ -109,23 +115,6 @@ class HeartBPMDialog extends StatefulWidget {
     this.child,
     this.layoutType = HeartBPMDialogLayoutType.defaultLayout,
   });
-
-  /// Set the smoothing factor for exponential averaging
-  ///
-  /// the scaling factor [alpha] is used to compute exponential moving average of the
-  /// realtime data using the formula:
-  /// ```
-  /// $y_n = alpha * x_n + (1 - alpha) * y_{n-1}$
-  /// ```
-  void setAlpha(double a) {
-    if (a <= 0)
-      throw Exception(
-          "$HeartBPMDialog: smoothing factor cannot be 0 or negative");
-    if (a > 1)
-      throw Exception(
-          "$HeartBPMDialog: smoothing factor cannot be greater than 1");
-    alpha = a;
-  }
 
   @override
   _HeartBPPView createState() => _HeartBPPView();
@@ -139,7 +128,11 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   bool _processing = false;
 
   /// Current value
-  int currentValue = 0;
+  double bpmSum = 0;
+  double totalWieght = 0;
+  int get currentValue => totalWieght == 0 ? 0 : bpmSum ~/ totalWieght;
+
+  int cutOffValue = 30;
 
   /// to ensure camara was initialized
   bool isCameraInitialized = false;
@@ -215,11 +208,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 
-  static const int windowLength = 50;
+  static const int windowLength = 120;
   final List<SensorValue> measureWindow = List<SensorValue>.filled(
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
 
+  //Convert YUV to RGB to extract rgb values
   RGB getRGB(CameraImage cameraImage) {
     final imageWidth = cameraImage.width;
     final imageHeight = cameraImage.height;
@@ -266,17 +260,15 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     return RGB(red / total, green / total, blue / total);
   }
 
+  //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
     return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
   }
 
-  void _scanImage(CameraImage image) async {
-    // make system busy
-    // setState(() {
-    //   _processing = true;
-    // });
+  DateTime? lastBeatTime;
+  double? bpm;
 
-    // get the average red value of the image
+  void _scanImage(CameraImage image) async {
     double _avg = getRGB(image).red;
 
     measureWindow.removeAt(0);
@@ -292,38 +284,169 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       }
     }
 
-    var normalizedData = _normalizedData(measureWindow);
-    var detrendedData = _detrendedData(normalizedData, 5);
-    detrendedData = _detrendedData(detrendedData, 10);
-    detrendedData = _detrendedData(detrendedData, 25);
+    //Preprocessing data
+    var data = _normalizedData(measureWindow);
+    data = _smoothData(data);
+    data = _detrendedData(data, 25);
+    data = _detrendedData(data, 10);
+    data = _detrendedData(data, 5);
 
-    _smoothBPM(detrendedData.last.value.toDouble()).then((value) {
-      widget.onRawData!(
-        // call the provided function with the new data sample
-        SensorValue(
-          time: DateTime.now(),
-          value: detrendedData.last.value.toDouble(),
-        ),
-      );
+    //FFT to fingure out what frequency dominates
+    final fft = FFT(data.length - cutOffValue * 2);
+    var freq = fft
+        .realFft(data
+            .sublist(cutOffValue, data.length - cutOffValue)
+            .map((e) => e.value.toDouble())
+            .toList())
+        .discardConjugates()
+        .map((e) => sqrt(e.x * e.x + e.y * e.y))
+        .toList();
 
-      Future<void>.delayed(Duration(milliseconds: widget.sampleDelay))
-          .then((onValue) {
-        if (mounted)
-          setState(() {
-            _processing = false;
-          });
-      });
+    //Providing with FFT data if needed
+    if (widget.onFFT != null) {
+      widget.onFFT!(freq);
+    }
+
+    int? _maxFreqIdx = _getFreq(freq);
+
+    //Getting the dominant frequency and updating the bpm
+    if (!measureWindow.map<num>((e) => e.value).contains(0)) {
+      if (_maxFreqIdx != null) {
+        final tempBpm = _getBPM(data, _maxFreqIdx);
+
+        //Weight calculates how accurate the alculations are
+        //Low weight = low chnaces for calculations to be correct
+        var weight = _getWeight(freq, _maxFreqIdx);
+        weight *= weight;
+
+        bpmSum += tempBpm * weight;
+        totalWieght += weight;
+
+        widget.onBPM(tempBpm, weight);
+      }
+    }
+
+    widget.onRawData!(
+      data.sublist(cutOffValue, windowLength - cutOffValue),
+    );
+
+    Future<void>.delayed(Duration(milliseconds: widget.sampleDelay))
+        .then((onValue) {
+      if (mounted)
+        setState(() {
+          _processing = false;
+        });
     });
   }
 
+  int _getBPM(List<SensorValue> data, int freq) {
+    int minTime = data.fold<double>(
+      double.infinity,
+      (previousValue, element) {
+        if (element.time.millisecondsSinceEpoch < previousValue) {
+          return element.time.millisecondsSinceEpoch.toDouble();
+        }
+        return previousValue;
+      },
+    ).toInt();
+
+    int averageTime = data.fold<int>(
+            0,
+            (previousValue, element) =>
+                element.time.millisecondsSinceEpoch + previousValue) ~/
+        data.length;
+
+    return 60 * 1000 * freq ~/ (averageTime - minTime);
+  }
+
+  double _getWeight(List<double> freq, int maxFreqIdx) {
+    bool isPeak(index) {
+      return index > 0 &&
+          index < freq.length - 1 &&
+          freq[index] > freq[index - 1] &&
+          freq[index] > freq[index + 1];
+    }
+
+    double totalPeakHeight = 0;
+
+    for (int i = 0; i < freq.length; i++) {
+      if (isPeak(i)) {
+        totalPeakHeight += freq[i];
+      }
+    }
+
+    return freq[maxFreqIdx] / totalPeakHeight;
+  }
+
+  int? _getFreq(List<double> modules) {
+    if (modules.length < (windowLength - cutOffValue * 2) / 2 + 1) return null;
+
+    double maxx = 0;
+    int? maxIndex;
+
+    for (int i = 1; i < modules.length; i++) {
+      if (modules[i] > maxx) {
+        maxx = modules[i];
+        maxIndex = i;
+      }
+    }
+
+    return maxIndex;
+  }
+
+  var normalizeIterations = 0;
+
   List<SensorValue> _normalizedData(List<SensorValue> data) {
-    num max = data.map((e) => e.value).toList().max;
-    num min = data.map((e) => e.value).toList().min;
+    num absoluteMax = data.map((e) => e.value.toDouble()).toList().max;
+    num absoluteMin = data.map((e) => e.value.toDouble()).toList().min;
+
+    normalizeIterations++;
+
+    if (normalizeIterations == measureWindow.length) {
+      normalizeIterations = 0;
+    }
+
+    if (normalizeIterations == 0) {
+      num max = _averageMax(data.map((e) => e.value.toDouble()).toList(), 10);
+      num min = _averageMin(data.map((e) => e.value.toDouble()).toList(), 10);
+
+      return data
+          .map((e) => SensorValue(
+                time: e.time,
+                value: ((e.value - absoluteMin) / (absoluteMax - absoluteMin))
+                        .clamp(min, max) *
+                    10,
+              ))
+          .toList();
+    }
 
     return data
         .map((e) => SensorValue(
-            time: e.time, value: 10 * (e.value - min) / (max - min)))
+              time: e.time,
+              value:
+                  ((e.value - absoluteMin) / (absoluteMax - absoluteMin)) * 10,
+            ))
         .toList();
+  }
+
+  double _averageMax(List<double> data, int spread) {
+    double result = 0;
+    int iterations = 0;
+    for (int i = 0; i < data.length - spread; i += spread) {
+      result += data.sublist(i, i + spread).max;
+      iterations++;
+    }
+    return result / iterations;
+  }
+
+  double _averageMin(List<double> data, int spread) {
+    double result = 0;
+    int iterations = 0;
+    for (int i = 0; i < data.length - spread; i += spread) {
+      result += data.sublist(i, i + spread).min;
+      iterations++;
+    }
+    return result / iterations;
   }
 
   List<SensorValue> _detrendedData(List<SensorValue> data, int spread) {
@@ -364,44 +487,22 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     return result;
   }
 
-  Future<int> _smoothBPM(double newValue) async {
-    double maxVal = 0, _avg = 0;
+  List<SensorValue> _smoothData(List<SensorValue> data) {
+    var values = data.map((e) => e.value).toList();
 
-    measureWindow.forEach((element) {
-      _avg += element.value / measureWindow.length;
-      if (element.value > maxVal) maxVal = element.value as double;
-    });
+    var ema = [];
+    ema.add(values[0]);
 
-    double _threshold = (maxVal + _avg) / 2;
-    int _counter = 0, previousTimestamp = 0;
-    double _tempBPM = 0;
-    for (int i = 1; i < measureWindow.length; i++) {
-      // find rising edge
-      if (measureWindow[i - 1].value < _threshold &&
-          measureWindow[i].value > _threshold) {
-        if (previousTimestamp != 0) {
-          _counter++;
-          _tempBPM += 60000 /
-              (measureWindow[i].time.millisecondsSinceEpoch -
-                  previousTimestamp); // convert to per minute
-        }
-        previousTimestamp = measureWindow[i].time.millisecondsSinceEpoch;
-      }
+    final ratio = (10) / (values.length + 1);
+
+    for (int i = 1; i < values.length; i++) {
+      ema.add(
+        values[i] * ratio + ema[i - 1] * (1 - ratio),
+      );
     }
 
-    if (_counter > 0) {
-      _tempBPM /= _counter;
-      _tempBPM = (1 - widget.alpha) * currentValue + widget.alpha * _tempBPM;
-      setState(() {
-        currentValue = _tempBPM.toInt();
-        // _bpm = _tempBPM;
-      });
-      widget.onBPM(currentValue);
-    }
-
-    // double newOut = widget.alpha * newValue + (1 - widget.alpha) * _pastBPM;
-    // _pastBPM = newOut;
-    return currentValue;
+    int i = 0;
+    return data.map((e) => SensorValue(time: e.time, value: ema[i++])).toList();
   }
 
   @override

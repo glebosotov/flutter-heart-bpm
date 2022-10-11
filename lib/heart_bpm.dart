@@ -264,7 +264,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
-    return rgb.red > 150 && rgb.green > 100 && rgb.blue < 50;
+    return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
   }
 
   DateTime? lastBeatTime;

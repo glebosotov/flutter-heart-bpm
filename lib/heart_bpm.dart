@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:fftea/fftea.dart';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+import 'package:image/image.dart' as imglib;
 
 class RGB {
   double red;
@@ -213,50 +214,36 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
 
+  imglib.Image _convertCameraImage(
+      CameraImage image, CameraLensDirection _dir) {
+    imglib.Image img = imglib.Image.fromBytes(
+      image.width,
+      image.height,
+      image.planes[0].bytes,
+      format: imglib.Format.bgra,
+    );
+    var img1 = (_dir == CameraLensDirection.front)
+        ? imglib.copyRotate(img, -90)
+        : imglib.copyRotate(img, 90);
+    return img1;
+  }
+
   //Convert YUV to RGB to extract rgb values
   RGB getRGB(CameraImage cameraImage) {
-    final imageWidth = cameraImage.width;
-    final imageHeight = cameraImage.height;
-
-    final yBuffer = cameraImage.planes[0].bytes;
-    final uBuffer = cameraImage.planes[1].bytes;
-    final vBuffer = cameraImage.planes[2].bytes;
-
-    final int yRowStride = cameraImage.planes[0].bytesPerRow;
-    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
-
-    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
-    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
-
     double red = 0;
     double green = 0;
     double blue = 0;
 
-    for (int h = 0; h < imageHeight; h++) {
-      int uvh = (h / 2).floor();
+    imglib.Image image =
+        _convertCameraImage(cameraImage, CameraLensDirection.back);
 
-      for (int w = 0; w < imageWidth; w++) {
-        int uvw = (w / 2).floor();
-
-        final yIndex = (h * yRowStride) + (w * yPixelStride);
-
-        final int y = yBuffer[yIndex];
-        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
-
-        final int u = uBuffer[uvIndex];
-        final int v = vBuffer[uvIndex];
-
-        int r = (y + v * 1436 / 1024 - 179).round();
-        int g = (y - u * 46549 / 131072 + 44 - v * 93604 / 131072 + 91).round();
-        int b = (y + u * 1814 / 1024 - 227).round();
-
-        red += r.clamp(0, 255);
-        green += g.clamp(0, 255);
-        blue += b.clamp(0, 255);
-      }
+    for (int i = 0; i < image.data.length; i++) {
+      red += imglib.getRed(image.data[i]);
+      blue += imglib.getBlue(image.data[i]);
+      green += imglib.getGreen(image.data[i]);
     }
 
-    final total = imageWidth * imageHeight;
+    final total = image.data.length;
     return RGB(red / total, green / total, blue / total);
   }
 

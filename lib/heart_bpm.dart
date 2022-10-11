@@ -237,10 +237,19 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     imglib.Image image =
         _convertCameraImage(cameraImage, CameraLensDirection.back);
 
+    int abgrToArgb(int argbColor) {
+      int r = (argbColor >> 16) & 0xFF;
+      int b = argbColor & 0xFF;
+      return (argbColor & 0xFF00FF00) | (b << 16) | r;
+    }
+
     for (int i = 0; i < image.data.length; i++) {
-      red += imglib.getRed(image.data[i]);
-      blue += imglib.getBlue(image.data[i]);
-      green += imglib.getGreen(image.data[i]);
+      final pixel32 = image.data[i];
+      int hex = abgrToArgb(pixel32);
+      Color color = Color(hex);
+      red += color.red;
+      blue += color.blue;
+      green += color.red;
     }
 
     final total = image.data.length;
@@ -249,6 +258,10 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
+    print(rgb.red);
+    print(rgb.green);
+    print(rgb.blue);
+    print('');
     return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
   }
 

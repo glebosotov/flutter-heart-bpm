@@ -3,9 +3,9 @@
 import 'dart:math';
 
 import 'package:camera/camera.dart';
+import 'package:collection/collection.dart';
 import 'package:fftea/fftea.dart';
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart';
 import 'package:image/image.dart' as imglib;
 
 class RGB {
@@ -14,6 +14,11 @@ class RGB {
   double blue;
 
   RGB(this.red, this.green, this.blue);
+
+  @override
+  String toString() {
+    return 'RGB{red: $red, green: $green, blue: $blue}';
+  }
 }
 
 /// Class to store one sample data point
@@ -183,7 +188,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
               'com.apple.avfoundation.avcapturedevice.built-in_video:2',
           orElse: () => _cameras.first);
       _controller = CameraController(_camera, ResolutionPreset.low,
-          enableAudio: false, imageFormatGroup: ImageFormatGroup.yuv420);
+          enableAudio: false, imageFormatGroup: ImageFormatGroup.bgra8888);
 
       // 3. initialize the camera
       await _controller!.initialize();
@@ -249,16 +254,17 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       Color color = Color(hex);
       red += color.red;
       blue += color.blue;
-      green += color.red;
+      green += color.green;
     }
 
     final total = image.data.length;
-    return RGB(red / total, green / total, blue / total);
+    final rgb = RGB(red / total, green / total, blue / total);
+    return rgb;
   }
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
-    return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
+    return rgb.red > 150 && rgb.green > 100 && rgb.blue < 50;
   }
 
   DateTime? lastBeatTime;

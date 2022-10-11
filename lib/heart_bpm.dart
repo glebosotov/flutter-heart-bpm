@@ -111,7 +111,7 @@ class HeartBPMDialog extends StatefulWidget {
   HeartBPMDialog({
     Key? key,
     required this.context,
-    this.sampleDelay = 2000 ~/ 60,
+    this.sampleDelay = 2000 ~/ 20,
     required this.onBPM,
     this.onFFT,
     this.onNoFingerDetected,
@@ -138,7 +138,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   double totalWieght = 0;
   int get currentValue => totalWieght == 0 ? 0 : bpmSum ~/ totalWieght;
 
-  int cutOffValue = 30;
+  int cutOffValue = 15;
 
   /// to ensure camara was initialized
   bool isCameraInitialized = false;
@@ -214,7 +214,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 
-  static const int windowLength = 120;
+  static const int windowLength = 70;
   final List<SensorValue> measureWindow = List<SensorValue>.filled(
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
@@ -318,7 +318,8 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     //Getting the dominant frequency and updating the bpm
     if (!measureWindow.map<num>((e) => e.value).contains(0)) {
       if (_maxFreqIdx != null) {
-        final tempBpm = _getBPM(data, _maxFreqIdx);
+        final tempBpm = _getBPM(
+            data.sublist(cutOffValue, data.length - cutOffValue), _maxFreqIdx);
 
         //Weight calculates how accurate the alculations are
         //Low weight = low chnaces for calculations to be correct
@@ -346,23 +347,10 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   int _getBPM(List<SensorValue> data, int freq) {
-    int minTime = data.fold<double>(
-      double.infinity,
-      (previousValue, element) {
-        if (element.time.millisecondsSinceEpoch < previousValue) {
-          return element.time.millisecondsSinceEpoch.toDouble();
-        }
-        return previousValue;
-      },
-    ).toInt();
-
-    int averageTime = data.fold<int>(
-            0,
-            (previousValue, element) =>
-                element.time.millisecondsSinceEpoch + previousValue) ~/
-        data.length;
-
-    return 60 * 1000 * freq ~/ (averageTime - minTime);
+    Duration totalTime = data.last.time.difference(data.first.time);
+    print(totalTime.inMilliseconds / data.length);
+    double periodInMilliseonds = totalTime.inMilliseconds / freq;
+    return 60 * 1000 ~/ periodInMilliseonds;
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
@@ -385,7 +373,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   int? _getFreq(List<double> modules) {
-    if (modules.length < (windowLength - cutOffValue * 2) / 2 + 1) return null;
+    if (modules.length < (windowLength - cutOffValue * 2) ~/ 2 + 1) return null;
 
     double maxx = 0;
     int? maxIndex;
@@ -499,7 +487,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     var ema = [];
     ema.add(values[0]);
 
-    final ratio = (10) / (values.length + 1);
+    final ratio = (20) / (values.length + 1);
 
     for (int i = 1; i < values.length; i++) {
       ema.add(

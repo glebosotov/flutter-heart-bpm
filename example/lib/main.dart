@@ -57,6 +57,13 @@ class _HomePageState extends State<HomePage> {
                       });
                       // chart = BPMChart(data);
                     },
+                    onFFT: (value) {
+                      setState(() {
+                        fft.clear();
+                        fft.addAll(value);
+                      });
+                      // chart = BPMChart(data);
+                    },
                     onBPM: (value, weight) => setState(() {
                       setState(() {
                         bpm = value;

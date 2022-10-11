@@ -61,7 +61,7 @@ class HeartBPMDialog extends StatefulWidget {
   /// Should be non-blocking as it can affect
   final void Function(List<SensorValue>)? onRawData;
 
-  final void Function(List<double>)? onFFT;
+  final void Function(List<SensorValue>)? onFFT;
 
   /// Callback used to notify if the image is not red enough
   final void Function()? onNoFingerDetected;
@@ -304,9 +304,13 @@ class _HeartBPPView extends State<HeartBPMDialog> {
         .map((e) => sqrt(e.x * e.x + e.y * e.y))
         .toList();
 
+    int i = 0;
+
     //Providing with FFT data if needed
     if (widget.onFFT != null) {
-      widget.onFFT!(freq);
+      widget.onFFT!(freq
+          .map((e) => SensorValue(time: data[cutOffValue + i++].time, value: e))
+          .toList());
     }
 
     int? _maxFreqIdx = _getFreq(freq);

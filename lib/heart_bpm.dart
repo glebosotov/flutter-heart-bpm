@@ -63,7 +63,7 @@ class HeartBPMDialog extends StatefulWidget {
 
   final void Function(List<SensorValue>)? onFFT;
 
-  final bool Function(double red, double green, double blue)? noFingerCondition;
+  final bool Function(double red, double green, double blue)? fingerCondition;
 
   /// Callback used to notify if the image is not red enough
   final void Function()? onNoFingerDetected;
@@ -117,7 +117,7 @@ class HeartBPMDialog extends StatefulWidget {
     required this.onBPM,
     this.onFFT,
     this.onNoFingerDetected,
-    this.noFingerCondition,
+    this.fingerCondition,
     this.onFingerDetected,
     this.onRawData,
     this.alpha = 0.8,
@@ -267,8 +267,9 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
-    if (widget.noFingerCondition != null) {
-      return widget.noFingerCondition!(rgb.red, rgb.green, rgb.blue);
+    print(rgb.red);
+    if (widget.fingerCondition != null) {
+      return widget.fingerCondition!(rgb.red, rgb.green, rgb.blue);
     }
     return rgb.red > 150 && rgb.green < 100 && rgb.blue < 50;
   }

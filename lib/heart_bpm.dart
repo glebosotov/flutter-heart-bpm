@@ -348,7 +348,6 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   int _getBPM(List<SensorValue> data, int freq) {
     Duration totalTime = data.last.time.difference(data.first.time);
-    print(totalTime.inMilliseconds / data.length);
     double periodInMilliseonds = totalTime.inMilliseconds / freq;
     return 60 * 1000 ~/ periodInMilliseonds;
   }

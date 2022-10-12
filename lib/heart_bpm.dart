@@ -63,7 +63,7 @@ class HeartBPMDialog extends StatefulWidget {
 
   final void Function(List<SensorValue>)? onFFT;
 
-  final bool Function(double, double, double)? noFingerCondition;
+  final bool Function(double red, double green, double blue)? noFingerCondition;
 
   /// Callback used to notify if the image is not red enough
   final void Function()? onNoFingerDetected;

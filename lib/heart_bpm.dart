@@ -141,7 +141,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   double totalWieght = 0;
   int get currentValue => totalWieght == 0 ? 0 : bpmSum ~/ totalWieght;
 
-  int cutOffValue = 15;
+  int cutOffValue = 5;
 
   /// to ensure camara was initialized
   bool isCameraInitialized = false;
@@ -217,7 +217,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 
-  static const int windowLength = 70;
+  static const int windowLength = 40;
   final List<SensorValue> measureWindow = List<SensorValue>.filled(
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);

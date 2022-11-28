@@ -217,7 +217,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 
-  static const int windowLength = 40;
+  static const int windowLength = 30;
   final List<SensorValue> measureWindow = List<SensorValue>.filled(
       windowLength, SensorValue(time: DateTime.now(), value: 0),
       growable: true);
@@ -296,9 +296,10 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     //Preprocessing data
     var data = _normalizedData(measureWindow);
     data = _smoothData(data);
-    data = _detrendedData(data, 25);
+    data = _detrendedData(data, 15);
     data = _detrendedData(data, 10);
     data = _detrendedData(data, 5);
+    data = _detrendedData(data, 10);
 
     //FFT to fingure out what frequency dominates
     final fft = FFT(data.length - cutOffValue * 2);

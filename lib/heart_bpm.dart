@@ -375,8 +375,9 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     //     totalPeakHeight += freq[i];
     //   }
     // }
+    var freqToFifth = freq.map((e) => pow(e, 5)).toList();
 
-    return freq[maxFreqIdx] / freq.sum;
+    return freqToFifth[maxFreqIdx] / freqToFifth.sum;
   }
 
   int? _getFreq(List<double> modules) {

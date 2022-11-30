@@ -332,7 +332,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
         //Weight calculates how accurate the alculations are
         //Low weight = low chnaces for calculations to be correct
         var weight = _getWeight(freq, _maxFreqIdx);
-        weight *= weight;
+        //weight *= weight;
 
         bpmSum += tempBpm * weight;
         totalWieght += weight;
@@ -361,22 +361,22 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    bool isPeak(index) {
-      return index > 0 &&
-          index < freq.length - 1 &&
-          freq[index] > freq[index - 1] &&
-          freq[index] > freq[index + 1];
-    }
+    // bool isPeak(index) {
+    //   return index > 0 &&
+    //       index < freq.length - 1 &&
+    //       freq[index] > freq[index - 1] &&
+    //       freq[index] > freq[index + 1];
+    // }
 
-    double totalPeakHeight = 0;
+    // double totalPeakHeight = 0;
 
-    for (int i = 0; i < freq.length; i++) {
-      if (isPeak(i)) {
-        totalPeakHeight += freq[i];
-      }
-    }
+    // for (int i = 0; i < freq.length; i++) {
+    //   if (isPeak(i)) {
+    //     totalPeakHeight += freq[i];
+    //   }
+    // }
 
-    return freq[maxFreqIdx] / totalPeakHeight;
+    return freq[maxFreqIdx] / freq.sum;
   }
 
   int? _getFreq(List<double> modules) {

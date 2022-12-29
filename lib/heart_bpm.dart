@@ -1,6 +1,6 @@
 // library heart_bpm;
 
-import 'dart:developer';
+import 'dart:developer' as dev;
 import 'dart:math';
 
 import 'package:camera/camera.dart';
@@ -188,7 +188,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       _cameras = _cameras
           .where((element) => element.lensDirection == CameraLensDirection.back)
           .toList();
-      log(_cameras.map((e) => e.name).join(", "));
+      dev.log(_cameras.map((e) => e.name).join(", "));
 
       /// Choose iPhone zoom lense as it is aligned with the flash
       final _camera = _cameras.firstWhere(

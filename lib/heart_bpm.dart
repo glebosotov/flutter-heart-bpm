@@ -267,7 +267,6 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
-    print(rgb.red);
     if (widget.fingerCondition != null) {
       return widget.fingerCondition!(rgb.red, rgb.green, rgb.blue);
     }
@@ -361,23 +360,14 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    // bool isPeak(index) {
-    //   return index > 0 &&
-    //       index < freq.length - 1 &&
-    //       freq[index] > freq[index - 1] &&
-    //       freq[index] > freq[index + 1];
-    // }
+    var freqToThird = freq.map((e) => pow(e, 3)).toList();
 
-    // double totalPeakHeight = 0;
+    var averageDiffWithMax = freqToThird
+        .whereIndexed((index, e) => index != maxFreqIdx)
+        .map((e) => freqToThird[maxFreqIdx] - e)
+        .average;
 
-    // for (int i = 0; i < freq.length; i++) {
-    //   if (isPeak(i)) {
-    //     totalPeakHeight += freq[i];
-    //   }
-    // }
-    var freqToFifth = freq.map((e) => pow(e, 2.5)).toList();
-
-    return freqToFifth[maxFreqIdx] / freqToFifth.sum;
+    return pow(averageDiffWithMax, 2).toDouble();
   }
 
   int? _getFreq(List<double> modules) {

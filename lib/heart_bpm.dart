@@ -1,6 +1,5 @@
 // library heart_bpm;
 
-import 'dart:developer' as dev;
 import 'dart:math';
 
 import 'package:camera/camera.dart';
@@ -92,9 +91,6 @@ class HeartBPMDialog extends StatefulWidget {
   /// ```
   double alpha = 0.6;
 
-  /// Optinal parameter for preferred camera
-  final String? cameraId;
-
   /// Additional child widget to display
   final Widget? child;
 
@@ -127,7 +123,6 @@ class HeartBPMDialog extends StatefulWidget {
     this.alpha = 0.8,
     this.child,
     this.layoutType = HeartBPMDialogLayoutType.defaultLayout,
-    this.cameraId,
   });
 
   @override
@@ -188,11 +183,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       _cameras = _cameras
           .where((element) => element.lensDirection == CameraLensDirection.back)
           .toList();
-      dev.log(_cameras.map((e) => e.name).join(", "));
 
       /// Choose iPhone zoom lense as it is aligned with the flash
       final _camera = _cameras.firstWhere(
-          (element) => element.name == widget.cameraId,
+          (element) =>
+              element.name ==
+              'com.apple.avfoundation.avcapturedevice.built-in_video:2',
           orElse: () => _cameras.first);
       _controller = CameraController(_camera, ResolutionPreset.low,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.bgra8888);
@@ -364,17 +360,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    var freqToSecond = freq.map((e) => pow(e, 2)).toList();
-    var maxFreq = freqToSecond[maxFreqIdx];
+    var freqToPower = freq.map((e) => pow(e, 4.5)).toList();
+    var maxFreq = freqToPower[maxFreqIdx];
 
-    freqToSecond = freqToSecond.map((e) => e / maxFreq).toList();
+    freqToPower = freqToPower.map((e) => e / maxFreq).toList();
 
-    var averageDiffWithMax = freqToSecond
-        .whereIndexed((index, e) => index != maxFreqIdx)
-        .map((e) => freqToSecond[maxFreqIdx] - e)
-        .average;
-
-    return pow(averageDiffWithMax, 3).toDouble();
+    return freqToPower[maxFreqIdx] / freqToPower.sum;
   }
 
   int? _getFreq(List<double> modules) {

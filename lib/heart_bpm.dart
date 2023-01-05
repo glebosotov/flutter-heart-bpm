@@ -364,14 +364,17 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    var freqToThird = freq.map((e) => pow(e, 3)).toList();
+    var freqToFifth = freq.map((e) => pow(e, 5)).toList();
+    var maxFreq = freqToFifth[maxFreqIdx];
 
-    var averageDiffWithMax = freqToThird
+    freqToFifth = freqToFifth.map((e) => e / maxFreq).toList();
+
+    var averageDiffWithMax = freqToFifth
         .whereIndexed((index, e) => index != maxFreqIdx)
-        .map((e) => freqToThird[maxFreqIdx] - e)
+        .map((e) => freqToFifth[maxFreqIdx] - e)
         .average;
 
-    return pow(averageDiffWithMax, 2).toDouble();
+    return pow(averageDiffWithMax, 2.5).toDouble();
   }
 
   int? _getFreq(List<double> modules) {

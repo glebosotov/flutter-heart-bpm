@@ -1,6 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:heart_bpm/chart.dart';
 import 'package:heart_bpm/heart_bpm.dart';
+import 'package:collection/collection.dart';
 
 void main() {
   runApp(MyApp());
@@ -20,6 +23,16 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class _HeartBPM {
+  final double weight;
+  final int value;
+
+  _HeartBPM({
+    required this.value,
+    required this.weight,
+  });
+}
+
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
@@ -27,13 +40,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<SensorValue> data = [];
-  List<SensorValue> fft = [];
   List<SensorValue> bpmValues = [];
+  List<SensorValue> fftValues = [];
   //  Widget chart = BPMChart(data);
 
+  int? currentValue;
+  double? currentReliability;
+
+  List<_HeartBPM> heartRateValues = [];
+
   bool isBPMEnabled = false;
-  int bpm = 0;
   Widget? dialog;
+
+  double? sum;
+  double? weight;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +61,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text('Heart BPM Demo'),
       ),
-      body: Column(
+      body: ListView(
         children: [
           isBPMEnabled
               ? dialog = SizedBox(
@@ -52,52 +72,70 @@ class _HomePageState extends State<HomePage> {
                     layoutType: HeartBPMDialogLayoutType.circle,
                     onRawData: (value) {
                       setState(() {
-                        data.clear();
-                        data.addAll(value);
+                        if (data.length >= 100) data.removeAt(0);
+                        data.add(value.first);
                       });
-                      // chart = BPMChart(data);
                     },
-                    onFFT: (value) {
-                      setState(() {
-                        fft.clear();
-                        fft.addAll(value);
-                      });
-                      // chart = BPMChart(data);
-                    },
-                    onBPM: (value, weight) => setState(() {
-                      setState(() {
-                        bpm = value;
-                      });
+                    onBPM: (value, kek) => setState(() {
                       if (bpmValues.length >= 100) bpmValues.removeAt(0);
                       bpmValues.add(SensorValue(
                           value: value.toDouble(), time: DateTime.now()));
+                      currentValue = value;
+
+                      heartRateValues.add(_HeartBPM(value: value, weight: kek));
+
+                      sum = heartRateValues.reversed
+                          .take(50)
+                          .map((e) => e.value * e.weight)
+                          .sum;
+                      weight = heartRateValues.reversed
+                          .take(50)
+                          .map((e) => e.weight)
+                          .sum;
+
+                      currentReliability =
+                          weight! / min(heartRateValues.length, 50);
                     }),
-                    onNoFingerDetected: () {},
+                    onFFT: (value) {
+                      fftValues = value;
+                    },
                   ),
                 )
               : SizedBox(),
+          if (bpmValues.isNotEmpty) Text('Current value: $currentValue'),
+          if (bpmValues.isNotEmpty)
+            Text(
+              'Current value\'s reliability: ${currentReliability?.toStringAsFixed(2)}',
+            ),
+          if (bpmValues.isNotEmpty)
+            Text(
+              'FINAL VALUE: ${sum == null ? null : sum! ~/ weight!}',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           isBPMEnabled && data.isNotEmpty
               ? Container(
                   decoration: BoxDecoration(border: Border.all()),
-                  height: 100,
+                  height: 180,
                   child: BPMChart(data),
                 )
               : SizedBox(),
           isBPMEnabled && bpmValues.isNotEmpty
               ? Container(
                   decoration: BoxDecoration(border: Border.all()),
-                  constraints: BoxConstraints.expand(height: 100),
+                  constraints: BoxConstraints.expand(height: 180),
                   child: BPMChart(bpmValues),
                 )
               : SizedBox(),
-          fft.isNotEmpty
+          isBPMEnabled && fftValues.isNotEmpty
               ? Container(
                   decoration: BoxDecoration(border: Border.all()),
-                  constraints: BoxConstraints.expand(height: 100),
-                  child: BPMChart(fft),
+                  constraints: BoxConstraints.expand(height: 180),
+                  child: BPMChart(fftValues),
                 )
               : SizedBox(),
-          Text(bpm.toString()),
           Center(
             child: ElevatedButton.icon(
               icon: Icon(Icons.favorite_rounded),

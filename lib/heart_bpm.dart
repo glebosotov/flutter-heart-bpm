@@ -1,5 +1,4 @@
 // library heart_bpm;
-
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
@@ -194,6 +193,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       _cameras = _cameras
           .where((element) => element.lensDirection == CameraLensDirection.back)
           .toList();
+
       dev.log(_cameras.map((e) => e.name).join(", "));
 
       /// Choose iPhone zoom lense as it is aligned with the flash
@@ -280,7 +280,6 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   //check if there's a finger on the camera
   bool fingerCondition(RGB rgb) {
-    print(rgb.red);
     if (widget.fingerCondition != null) {
       return widget.fingerCondition!(rgb.red, rgb.green, rgb.blue);
     }
@@ -374,23 +373,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    // bool isPeak(index) {
-    //   return index > 0 &&
-    //       index < freq.length - 1 &&
-    //       freq[index] > freq[index - 1] &&
-    //       freq[index] > freq[index + 1];
-    // }
+    var freqToPower = freq.map((e) => pow(e, 4)).toList();
+    var maxFreq = freqToPower[maxFreqIdx];
 
-    // double totalPeakHeight = 0;
+    freqToPower = freqToPower.map((e) => e / maxFreq).toList();
 
-    // for (int i = 0; i < freq.length; i++) {
-    //   if (isPeak(i)) {
-    //     totalPeakHeight += freq[i];
-    //   }
-    // }
-    var freqToFifth = freq.map((e) => pow(e, 2.5)).toList();
-
-    return freqToFifth[maxFreqIdx] / freqToFifth.sum;
+    return freqToPower[maxFreqIdx] / freqToPower.sum;
   }
 
   int? _getFreq(List<double> modules) {
@@ -570,3 +558,39 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 }
+
+
+  // double _getWeight(List<double> freq, int maxFreqIdx) {
+  //   var freqToPower = freq.map((e) => pow(e, 0.5)).toList();
+  //   var maxFreq = freqToPower[maxFreqIdx];
+
+  //   freqToPower = freqToPower.map((e) => e / maxFreq).toList();
+  //   maxFreq = freqToPower[maxFreqIdx];
+
+  //   var avgDiff = freqToPower
+  //       .where((element) => element != maxFreq)
+  //       .map((e) => maxFreq - e)
+  //       .average;
+
+  //   var massOffset =
+  //       (maxFreqIdx - _getCenterOfMassIdx(freq)).abs() / freq.length;
+
+  //   var freqToHigherPower = freq.map((e) => pow(e, 2)).toList();
+  //   maxFreq = freqToHigherPower[maxFreqIdx];
+
+  //   freqToHigherPower = freqToHigherPower.map((e) => e / maxFreq).toList();
+  //   var massRatio = freqToHigherPower[maxFreqIdx] / freqToHigherPower.sum;
+
+  //   print(avgDiff);
+  //   print(1 - massOffset);
+  //   print(massRatio);
+  //   print('');
+
+  //   return avgDiff * 0.15 + (1 - massOffset) * 0.1 + massRatio * 0.75;
+  // }
+
+  // double _getCenterOfMassIdx(List<double> freq) {
+  //   var indices = List.generate(freq.length, (index) => index);
+  //   return freq.mapIndexed((index, element) => element * indices[index]).sum /
+  //       freq.sum;
+  // }

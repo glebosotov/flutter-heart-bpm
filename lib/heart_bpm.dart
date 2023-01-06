@@ -98,7 +98,7 @@ class HeartBPMDialog extends StatefulWidget {
 
   /// Method channel to control flashlight brightness, make sure you have [setBrightness] method in your native code
   /// it should take a double value between 0 and 1
-  final MethodChannel? torchChannel = const MethodChannel('along.heart/camera');
+  final MethodChannel? torchChannel;
 
   /// Additional child widget to display
   final Widget? child;
@@ -133,6 +133,7 @@ class HeartBPMDialog extends StatefulWidget {
     this.child,
     this.layoutType = HeartBPMDialogLayoutType.defaultLayout,
     this.cameraId,
+    this.torchChannel = const MethodChannel('along.heart/camera'),
   });
 
   @override

@@ -1,12 +1,14 @@
 // library heart_bpm;
 
 import 'dart:developer' as dev;
+import 'dart:io';
 import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:collection/collection.dart';
 import 'package:fftea/fftea.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as imglib;
 
 class RGB {
@@ -94,6 +96,10 @@ class HeartBPMDialog extends StatefulWidget {
 
   /// Optinal parameter for preferred camera
   final String? cameraId;
+
+  /// Method channel to control flashlight brightness, make sure you have [setBrightness] method in your native code
+  /// it should take a double value between 0 and 1
+  final MethodChannel? torchChannel = const MethodChannel('along.heart/camera');
 
   /// Additional child widget to display
   final Widget? child;
@@ -201,8 +207,11 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       await _controller!.initialize();
 
       // 4. set torch to ON and start image stream
-      Future.delayed(Duration(milliseconds: 500))
-          .then((value) => _controller!.setFlashMode(FlashMode.torch));
+      Future.delayed(Duration(milliseconds: 500)).then((value) async {
+        await _controller!.setFlashMode(FlashMode.torch);
+        await Future.delayed(Duration(milliseconds: 200));
+        _setFlashLevelIos();
+      });
 
       // 5. register image streaming callback
       _controller!.startImageStream((image) {
@@ -509,6 +518,16 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
     int i = 0;
     return data.map((e) => SensorValue(time: e.time, value: ema[i++])).toList();
+  }
+
+  void _setFlashLevelIos() async {
+    if (Platform.isIOS) {
+      try {
+        widget.torchChannel?.invokeMethod<void>('setBrightness', 0.5);
+      } catch (e) {
+        print(e);
+      }
+    }
   }
 
   @override

@@ -360,7 +360,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   }
 
   double _getWeight(List<double> freq, int maxFreqIdx) {
-    var freqToPower = freq.map((e) => pow(e, 4.5)).toList();
+    var freqToPower = freq.map((e) => pow(e, 4)).toList();
     var maxFreq = freqToPower[maxFreqIdx];
 
     freqToPower = freqToPower.map((e) => e / maxFreq).toList();
@@ -535,3 +535,39 @@ class _HeartBPPView extends State<HeartBPMDialog> {
     }
   }
 }
+
+
+  // double _getWeight(List<double> freq, int maxFreqIdx) {
+  //   var freqToPower = freq.map((e) => pow(e, 0.5)).toList();
+  //   var maxFreq = freqToPower[maxFreqIdx];
+
+  //   freqToPower = freqToPower.map((e) => e / maxFreq).toList();
+  //   maxFreq = freqToPower[maxFreqIdx];
+
+  //   var avgDiff = freqToPower
+  //       .where((element) => element != maxFreq)
+  //       .map((e) => maxFreq - e)
+  //       .average;
+
+  //   var massOffset =
+  //       (maxFreqIdx - _getCenterOfMassIdx(freq)).abs() / freq.length;
+
+  //   var freqToHigherPower = freq.map((e) => pow(e, 2)).toList();
+  //   maxFreq = freqToHigherPower[maxFreqIdx];
+
+  //   freqToHigherPower = freqToHigherPower.map((e) => e / maxFreq).toList();
+  //   var massRatio = freqToHigherPower[maxFreqIdx] / freqToHigherPower.sum;
+
+  //   print(avgDiff);
+  //   print(1 - massOffset);
+  //   print(massRatio);
+  //   print('');
+
+  //   return avgDiff * 0.15 + (1 - massOffset) * 0.1 + massRatio * 0.75;
+  // }
+
+  // double _getCenterOfMassIdx(List<double> freq) {
+  //   var indices = List.generate(freq.length, (index) => index);
+  //   return freq.mapIndexed((index, element) => element * indices[index]).sum /
+  //       freq.sum;
+  // }

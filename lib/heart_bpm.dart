@@ -1,7 +1,7 @@
 // library heart_bpm;
+import 'dart:developer' as dev;
 
 import 'dart:math';
-
 import 'package:camera/camera.dart';
 import 'package:collection/collection.dart';
 import 'package:fftea/fftea.dart';
@@ -91,6 +91,9 @@ class HeartBPMDialog extends StatefulWidget {
   /// ```
   double alpha = 0.6;
 
+  /// Optinal parameter for preferred camera
+  final String? cameraId;
+
   /// Additional child widget to display
   final Widget? child;
 
@@ -123,6 +126,7 @@ class HeartBPMDialog extends StatefulWidget {
     this.alpha = 0.8,
     this.child,
     this.layoutType = HeartBPMDialogLayoutType.defaultLayout,
+    this.cameraId,
   });
 
   @override
@@ -184,11 +188,11 @@ class _HeartBPPView extends State<HeartBPMDialog> {
           .where((element) => element.lensDirection == CameraLensDirection.back)
           .toList();
 
+      dev.log(_cameras.map((e) => e.name).join(", "));
+
       /// Choose iPhone zoom lense as it is aligned with the flash
       final _camera = _cameras.firstWhere(
-          (element) =>
-              element.name ==
-              'com.apple.avfoundation.avcapturedevice.built-in_video:2',
+          (element) => element.name == widget.cameraId,
           orElse: () => _cameras.first);
       _controller = CameraController(_camera, ResolutionPreset.low,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.bgra8888);

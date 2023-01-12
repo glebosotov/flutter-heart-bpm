@@ -157,6 +157,8 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   /// to ensure camara was initialized
   bool isCameraInitialized = false;
 
+  bool deinitProcess = false;
+
   @override
   void initState() {
     super.initState();
@@ -165,6 +167,7 @@ class _HeartBPPView extends State<HeartBPMDialog> {
 
   @override
   void dispose() {
+    deinitProcess = true;
     _deinitController();
     super.dispose();
   }
@@ -172,9 +175,12 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   /// Deinitialize the camera controller
   void _deinitController() async {
     isCameraInitialized = false;
-    if (_controller == null) return;
+    if (_controller == null) {
+      _disableFlashIos();
+      return;
+    }
 
-    Future.delayed(Duration(milliseconds: 430), () async {
+    Future.delayed(Duration(milliseconds: 500), () async {
       await _controller!.setFlashMode(FlashMode.off);
       await _controller!.dispose();
     });
@@ -201,22 +207,27 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       final _camera = _cameras.firstWhere(
           (element) => element.name == widget.cameraId,
           orElse: () => _cameras.first);
-      _controller = CameraController(_camera, ResolutionPreset.low,
-          enableAudio: false, imageFormatGroup: ImageFormatGroup.bgra8888);
+      _controller = CameraController(
+        _camera,
+        ResolutionPreset.low,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.bgra8888,
+      );
 
       // 3. initialize the camera
       await _controller!.initialize();
 
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (deinitProcess) return;
+
       // 4. set torch to ON and start image stream
-      Future.delayed(Duration(milliseconds: 200)).then(
-        (value) async {
-          if (Platform.isAndroid) {
-            await _controller!.setFlashMode(FlashMode.torch);
-            await Future.delayed(Duration(milliseconds: 200));
-          }
-          _setFlashLevelIos();
-        },
-      );
+      if (Platform.isAndroid) {
+        await _controller!.setFlashMode(FlashMode.torch);
+        await Future.delayed(Duration(milliseconds: 200));
+      } else {
+        _setFlashLevelIos();
+      }
+
       // 5. register image streaming callback
       _controller!.startImageStream((image) {
         if (!_processing && mounted) {
@@ -224,13 +235,13 @@ class _HeartBPPView extends State<HeartBPMDialog> {
           _scanImage(image);
         }
       });
-
-      setState(() {
-        isCameraInitialized = true;
-      });
+      if (mounted)
+        setState(() {
+          isCameraInitialized = true;
+        });
     } catch (e) {
       print(e);
-      throw e;
+      if (mounted) throw e;
     }
   }
 
@@ -515,7 +526,17 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   void _setFlashLevelIos() async {
     if (Platform.isIOS) {
       try {
-        widget.torchChannel?.invokeMethod<void>('setBrightness', 0.5);
+        await widget.torchChannel?.invokeMethod<bool>('setBrightness', 0.5);
+      } catch (e) {
+        print(e);
+      }
+    }
+  }
+
+  void _disableFlashIos() async {
+    if (Platform.isIOS) {
+      try {
+        await widget.torchChannel?.invokeMethod<bool>('setBrightness', 0);
       } catch (e) {
         print(e);
       }

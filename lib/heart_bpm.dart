@@ -173,11 +173,11 @@ class _HeartBPPView extends State<HeartBPMDialog> {
   void _deinitController() async {
     isCameraInitialized = false;
     if (_controller == null) return;
-    // await _controller.stopImageStream();
-    await _controller!.setFlashMode(FlashMode.off);
-    await _controller!.dispose();
-    // while (_processing) {}
-    // _controller = null;
+
+    Future.delayed(Duration(milliseconds: 430), () async {
+      await _controller!.setFlashMode(FlashMode.off);
+      await _controller!.dispose();
+    });
   }
 
   /// Initialize the camera controller
@@ -208,12 +208,13 @@ class _HeartBPPView extends State<HeartBPMDialog> {
       await _controller!.initialize();
 
       // 4. set torch to ON and start image stream
-      Future.delayed(Duration(milliseconds: 500)).then((value) async {
-        await _controller!.setFlashMode(FlashMode.torch);
-        await Future.delayed(Duration(milliseconds: 200));
-        _setFlashLevelIos();
-      });
-
+      Future.delayed(Duration(milliseconds: 200)).then(
+        (value) async {
+          await _controller!.setFlashMode(FlashMode.torch);
+          await Future.delayed(Duration(milliseconds: 200));
+          _setFlashLevelIos();
+        },
+      );
       // 5. register image streaming callback
       _controller!.startImageStream((image) {
         if (!_processing && mounted) {
